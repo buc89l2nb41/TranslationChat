@@ -1,0 +1,35 @@
+# Render Blueprint — one Web Service (API + static UI)
+# Dashboard: New → Blueprint → connect this repo
+# Or: New → Web Service → use Build/Start below manually
+
+services:
+  - type: web
+    name: translationchat
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22.12.0"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: "0.0.0.0"
+      # Render injects PORT — do not set PORT here
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: COOKIE_SECRET
+        generateValue: true
+      - key: TRANS_TONE
+        value: neutral
+      - key: FEED_DISPLAY_LIMIT
+        value: "50"
+      - key: TRANSLATE_CONCURRENCY
+        value: "4"
+      - key: TRANSLATE_BATCH_MAX
+        value: "40"

@@ -1,0 +1,35 @@
+import { GoogleGenAI } from "@google/genai";
+import { getTransConfig } from "../config.js";
+import { getGeminiApiKey } from "../geminiKey.js";
+
+/**
+ * @param {string} text
+ * @param {string} targetLocale BCP-47
+ * @returns {Promise<string>}
+ */
+export async function translateWithGemini(text, targetLocale) {
+  const key = getGeminiApiKey();
+  if (!key) {
+    throw new Error("GEMINI_API_KEY is not set. Add GEMINI_API_KEY to .env or data/app.json on the server.");
+  }
+
+  const cfg = getTransConfig();
+  const tone = cfg.tone || "neutral";
+  const domain = cfg.domain?.trim();
+
+  const domainLine = domain ? `Domain/context: ${domain}. ` : "";
+  const prompt = `${domainLine}Tone: ${tone}. Translate the following text naturally into locale ${targetLocale}. Do not change the meaning. Output only the translation (no quotes or commentary).\n\n---\n${text}`;
+
+  const ai = new GoogleGenAI({ apiKey: key });
+  const response = await ai.models.generateContent({
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    contents: prompt,
+    config: {
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  });
+
+  const trimmed = response.text?.trim() ?? "";
+  if (!trimmed) throw new Error("Gemini returned an empty response.");
+  return trimmed;
+}

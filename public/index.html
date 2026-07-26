@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>AI Interpretation Chat</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="chat-shell">
+      <section class="chat-scroll" id="feedPanel">
+        <div class="messages" id="messages"></div>
+      </section>
+
+      <footer class="composer-dock">
+        <p class="hint composer-feed-hint" id="feedStatus" role="status" aria-live="polite"></p>
+        <section class="composer-extras composer-settings" id="profilePanel" aria-labelledby="profileHeading">
+          <h2 class="sr-only" id="profileHeading">Your profile</h2>
+          <div class="profile-inline composer-profile-inline">
+            <label class="field compact">
+              <span class="label">Name</span>
+              <input type="text" id="displayName" class="input" autocomplete="name" maxlength="64" />
+            </label>
+            <label class="field compact">
+              <span class="label">Language</span>
+              <select id="locale" class="select" aria-label="Translation language"></select>
+            </label>
+          </div>
+          <p class="hint profile-status-hint" id="profileStatus" role="status" aria-live="polite"></p>
+          <label class="auto-translate-toggle" for="autoTranslate">
+            <input type="checkbox" id="autoTranslate" />
+            <span class="auto-translate-label">Auto translate visible messages</span>
+          </label>
+        </section>
+        <div class="file-row composer-file-row" aria-label="File upload">
+          <div class="file-picker-group">
+            <input type="file" id="fileInput" class="sr-only" />
+            <label for="fileInput" class="secondary file-choose-label">Choose file</label>
+            <span class="file-selected-name" id="fileSelectedName" aria-live="polite">No file selected</span>
+          </div>
+          <button type="button" class="secondary file-upload-btn" id="fileUploadBtn">Upload</button>
+        </div>
+        <p class="hint file-status-hint" id="fileStatus" role="status" aria-live="polite"></p>
+        <div class="composer-row">
+          <textarea
+            id="composer"
+            class="textarea composer-input"
+            rows="1"
+            placeholder="Type your message"
+            enterkeyhint="send"
+          ></textarea>
+          <button type="button" class="primary send-btn" id="sendBtn" aria-label="Send">
+            <svg class="send-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none">
+              <path
+                d="M12 19V5m0 0L6 11m6-6l6 6"
+                stroke="currentColor"
+                stroke-width="2.25"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </footer>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
