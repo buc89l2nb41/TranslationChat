@@ -1,73 +1,73 @@
 # TranslationChat
 
-Real-time multilingual chat with on-demand AI translation powered by **Google Gemini**.
+**Google Gemini** 기반의 실시간 다국어 채팅입니다.
 
-Users pick their language, write in their own tongue, and read everyone else’s messages translated into that language—useful for mixed-language groups without forcing a single lingua franca.
+각자 사용 언어를 설정한 뒤 모국어로 대화하고, 다른 사람의 메시지는 내 언어로 번역해 볼 수 있습니다. 공통어를 강제하지 않아도 섞인 언어 그룹에서 소통하기 쉽습니다.
 
-**Live demo:** [https://translationchat.onrender.com](https://translationchat.onrender.com)  
-*(Render free tier may sleep after idle time; the first request can take ~1 minute.)*
-
----
-
-## Features
-
-- **Shared live feed** — new messages appear for all clients via Server-Sent Events (SSE)
-- **Per-user translation language** — profile locale drives Gemini target language
-- **Auto-translate** — translate visible messages in batch, or translate one bubble at a time
-- **Server-side translation cache** — once a message is translated into a locale, later viewers reuse it (no extra Gemini call); cache is dropped when the message leaves the feed
-- **Ephemeral chat room** — messages live in process memory (cleared on restart); profiles and file metadata use SQLite
-- **File attachments** — upload and share files in the feed
-- **Single deployable service** — Fastify serves the API and static UI together (easy to host on Render)
+**라이브 데모:** [https://translationchat.onrender.com](https://translationchat.onrender.com)  
+*(Render 무료 플랜은 일정 시간 미사용 시 슬립하며, 첫 접속에 약 1분 정도 걸릴 수 있습니다.)*
 
 ---
 
-## Tech stack
+## 주요 기능
 
-| Layer | Choices |
-|--------|---------|
-| Runtime | Node.js 22.5+ (`node:sqlite`) |
-| Server | Fastify 5, cookies, multipart, static |
-| AI | Google Gemini via `@google/genai` |
-| Data | In-memory message store + SQLite (users / files) |
-| Frontend | Vanilla HTML / CSS / JS (no SPA framework) |
-| Deploy | Render Blueprint (`render.yaml`), optional Docker |
+- **실시간 공유 피드** — Server-Sent Events(SSE)로 새 메시지를 모든 클라이언트에 즉시 전달
+- **사용자별 번역 언어** — 프로필 locale이 Gemini 번역 목표 언어로 사용됨
+- **자동 번역** — 보이는 메시지를 일괄 번역하거나, 말풍선마다 개별 번역
+- **서버 번역 캐시** — 한 번 번역된 메시지·언어 조합은 이후 사용자가 Gemini 없이 재사용. 메시지가 피드에서 밀리면 번역도 함께 삭제
+- **휘발성 채팅방** — 메시지는 프로세스 메모리에만 보관(재시작 시 초기화). 프로필·파일 메타데이터는 SQLite에 저장
+- **파일 첨부** — 피드에 파일 업로드·공유
+- **단일 서비스 배포** — Fastify가 API와 정적 UI를 함께 제공 (Render 배포에 적합)
 
 ---
 
-## How translation works
+## 기술 스택
+
+| 구분 | 사용 기술 |
+|------|-----------|
+| 런타임 | Node.js 22.5+ (`node:sqlite`) |
+| 서버 | Fastify 5, 쿠키, multipart, static |
+| AI | Google Gemini (`@google/genai`) |
+| 데이터 | 인메모리 메시지 저장소 + SQLite (사용자 / 파일) |
+| 프론트엔드 | Vanilla HTML / CSS / JS (SPA 프레임워크 없음) |
+| 배포 | Render Blueprint (`render.yaml`), Docker 선택 가능 |
+
+---
+
+## 번역 동작 방식
 
 ```
-Client                    Server                         Gemini
+클라이언트                 서버                            Gemini
   |  POST /api/translate     |                              |
-  |------------------------->|  cache hit? ---------------->| (skip)
-  |                          |  miss → generateContent ---->|
-  |                          |<----- translated text -------|
-  |                          |  store in memory cache       |
+  |------------------------->|  캐시 적중? ----------------->| (호출 생략)
+  |                          |  미스 → generateContent ---->|
+  |                          |<----- 번역문 -----------------|
+  |                          |  메모리 캐시에 저장            |
   |<---- translatedText -----|                              |
 ```
 
-- Cache key: **message id + target locale**
-- When the in-memory feed drops old messages (max 100), their translations are removed too
-- Feed responses can include already-known translations so clients skip unnecessary requests
+- 캐시 키: **메시지 ID + 목표 언어**
+- 인메모리 피드에서 오래된 메시지가 삭제되면(최대 100개) 해당 번역도 함께 제거
+- 피드 응답에 이미 알고 있는 번역을 실어 보내, 클라이언트가 불필요한 요청을 줄임
 
 ---
 
-## Quick start (local)
+## 로컬에서 실행하기
 
-**Requirements:** Node.js **≥ 22.5**, a [Google AI Studio](https://aistudio.google.com/apikey) API key.
+**필요 환경:** Node.js **≥ 22.5**, [Google AI Studio](https://aistudio.google.com/apikey) API 키
 
 ```bash
 git clone https://github.com/buc89l2nb41/TranslationChat.git
 cd TranslationChat
 cp .env.example .env
-# Set GEMINI_API_KEY (and optionally GEMINI_MODEL=gemini-2.5-flash)
+# GEMINI_API_KEY 설정 (선택: GEMINI_MODEL=gemini-2.5-flash)
 npm install
 npm start
 ```
 
-Open `http://localhost` (default `PORT=80`) or the port you set in `.env`.
+`.env`의 `PORT`(기본 80)에 맞게 `http://localhost` 등으로 접속합니다.
 
-Development with auto-reload:
+개발 시 자동 재시작:
 
 ```bash
 npm run dev
@@ -75,58 +75,58 @@ npm run dev
 
 ---
 
-## Environment variables
+## 환경 변수
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes | Google Gemini API key |
-| `GEMINI_MODEL` | No | Default `gemini-2.5-flash` |
-| `PORT` / `HOST` | No | Local bind (on Render, do **not** set `PORT`) |
-| `FEED_DISPLAY_LIMIT` | No | Max messages shown (default 50) |
-| `TRANSLATE_CONCURRENCY` | No | Parallel Gemini calls per batch (default 4) |
-| `TRANSLATE_BATCH_MAX` | No | Max IDs per batch request (default 50) |
-| `TRANS_TONE` / `TRANS_DOMAIN` | No | Optional prompt tone / domain hints |
-| `COOKIE_SECRET` | Prod | Session cookie signing secret |
+| 변수 | 필수 | 설명 |
+|------|------|------|
+| `GEMINI_API_KEY` | 예 | Google Gemini API 키 |
+| `GEMINI_MODEL` | 아니오 | 기본값 `gemini-2.5-flash` |
+| `PORT` / `HOST` | 아니오 | 로컬 바인딩 (Render에서는 `PORT`를 설정하지 않음) |
+| `FEED_DISPLAY_LIMIT` | 아니오 | 표시 메시지 상한 (기본 50) |
+| `TRANSLATE_CONCURRENCY` | 아니오 | 배치당 병렬 Gemini 호출 수 (기본 4) |
+| `TRANSLATE_BATCH_MAX` | 아니오 | 배치 요청당 최대 메시지 ID 수 (기본 50) |
+| `TRANS_TONE` / `TRANS_DOMAIN` | 아니오 | 프롬프트 톤·도메인 힌트 (선택) |
+| `COOKIE_SECRET` | 운영 권장 | 세션 쿠키 서명용 시크릿 |
 
-See `.env.example` for a full template.
-
----
-
-## Deploy on Render
-
-1. Connect this repo in the [Render](https://render.com) dashboard (Blueprint uses `render.yaml`, or create a Node Web Service manually).
-2. Set **`GEMINI_API_KEY`** in Environment (Blueprint leaves this for you to fill in).
-3. Prefer **`NODE_VERSION=22.13.0`** (or newer). Start command is `npm start` (includes `--experimental-sqlite` for older 22.x).
-4. Open `https://<service>.onrender.com`.
+전체 예시는 `.env.example`을 참고하세요.
 
 ---
 
-## Project structure
+## Render에 배포하기
+
+1. [Render](https://render.com)에서 이 저장소를 연결합니다 (Blueprint는 `render.yaml` 사용, 또는 Node Web Service를 직접 생성).
+2. Environment에 **`GEMINI_API_KEY`** 를 설정합니다 (Blueprint는 이 값을 수동 입력하도록 둡니다).
+3. **`NODE_VERSION=22.13.0`** 이상을 권장합니다. 시작 명령은 `npm start`입니다 (`--experimental-sqlite` 포함).
+4. `https://<서비스명>.onrender.com` 으로 접속합니다.
+
+---
+
+## 프로젝트 구조
 
 ```
 TranslationChat/
 ├── public/              # UI (index, app.js, styles)
 ├── server/
-│   ├── index.js         # Fastify bootstrap
-│   ├── messageStore.js  # In-memory feed + translation cache
-│   ├── db.js            # SQLite (users, files)
-│   ├── adapter/         # Gemini (+ optional HTTP/stub adapters)
-│   └── routes/          # REST + SSE + file download
+│   ├── index.js         # Fastify 부트스트랩
+│   ├── messageStore.js  # 인메모리 피드 + 번역 캐시
+│   ├── db.js            # SQLite (사용자, 파일)
+│   ├── adapter/         # Gemini (+ HTTP/stub 어댑터)
+│   └── routes/          # REST + SSE + 파일 다운로드
 ├── render.yaml          # Render Blueprint
-└── Dockerfile           # Optional container deploy
+└── Dockerfile           # 컨테이너 배포 (선택)
 ```
 
 ---
 
-## Design notes
+## 설계 의도
 
-- **One process, one URL** — avoids CORS / cookie issues from splitting frontend and API.
-- **Ephemeral chat** — intentional for a demo room: no long-term message history, lower storage and privacy surface.
-- **Cache translations, not forever** — cuts Gemini usage while the room is active; restart clears everything.
-- **Cookie-based anonymous users** — display name and language persist in SQLite without a full auth stack.
+- **프로세스 하나, URL 하나** — 프론트/API 분리로 생기는 CORS·쿠키 문제를 피함
+- **휘발성 채팅** — 데모용 채팅방: 장기 메시지 이력 없음, 저장·개인정보 부담 축소
+- **번역만 캐시, 영구 저장은 아님** — 방이 살아있는 동안 Gemini 호출을 줄이고, 재시작 시 전부 초기화
+- **쿠키 기반 익명 사용자** — 복잡한 인증 없이 표시 이름·언어를 SQLite에 유지
 
 ---
 
-## License
+## 라이선스
 
-Private / portfolio project (`"private": true` in `package.json`). Adjust if you open-source it later.
+포트폴리오용 비공개 프로젝트입니다 (`package.json`의 `"private": true`). 추후 오픈소스로 공개할 경우 라이선스를 별도 지정하세요.
