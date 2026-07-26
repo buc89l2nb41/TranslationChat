@@ -2,19 +2,6 @@ import { GoogleGenAI } from "@google/genai";
 import { getTransConfig } from "../config.js";
 import { getGeminiApiKey } from "../geminiKey.js";
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
-
-/** Models Google has retired for new API users — map to a supported equivalent. */
-const DEPRECATED_GEMINI_MODELS = {
-  "gemini-2.5-flash-lite": DEFAULT_GEMINI_MODEL,
-  "gemini-2.0-flash-lite": "gemini-2.0-flash",
-};
-
-function resolveGeminiModel() {
-  const requested = (process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL).trim();
-  return DEPRECATED_GEMINI_MODELS[requested] || requested;
-}
-
 /**
  * @param {string} text
  * @param {string} targetLocale BCP-47
@@ -34,9 +21,8 @@ export async function translateWithGemini(text, targetLocale) {
   const prompt = `${domainLine}Tone: ${tone}. Translate the following text naturally into locale ${targetLocale}. Do not change the meaning. Output only the translation (no quotes or commentary).\n\n---\n${text}`;
 
   const ai = new GoogleGenAI({ apiKey: key });
-  const model = resolveGeminiModel();
   const response = await ai.models.generateContent({
-    model,
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
     contents: prompt,
     config: {
       thinkingConfig: { thinkingBudget: 0 },
