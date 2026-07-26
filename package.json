@@ -6,10 +6,10 @@
     "node": ">=22.5"
   },
   "scripts": {
-    "clean-uploads": "node server/clean-uploads.mjs",
-    "prestart": "node server/clean-uploads.mjs",
-    "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "clean-uploads": "node --experimental-sqlite server/clean-uploads.mjs",
+    "prestart": "node --experimental-sqlite server/clean-uploads.mjs",
+    "start": "node --experimental-sqlite server/index.js",
+    "dev": "node --watch --experimental-sqlite server/index.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
