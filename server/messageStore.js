@@ -1,11 +1,17 @@
 /**
  * Chat feed messages: visible via /api/feed while running; not written to DB or files.
  * Lives in process memory only, so it is cleared on restart/deploy.
- * Translation output is not cached on the server either.
+ * Translations are cached in memory per messageId + targetLocale; dropped with the message.
  */
 
 /** @type {Array<{ id: number, userId: string, body: string, createdAt: number }>} */
 const messages = [];
+
+/**
+ * messageId -> (targetLocale -> translated text)
+ * @type {Map<number, Map<string, string>>}
+ */
+const translationsByMessageId = new Map();
 
 /** @type {Set<(m: { id: number, userId: string, body: string, createdAt: number }) => void>} */
 const messageListeners = new Set();
@@ -26,6 +32,13 @@ export function onMessageAdded(fn) {
 const MAX_MESSAGES = 100;
 
 /**
+ * @param {number} messageId
+ */
+function clearTranslationsForMessage(messageId) {
+  translationsByMessageId.delete(messageId);
+}
+
+/**
  * @param {string} userId
  * @param {string} body
  * @returns {{ id: number, createdAt: number }}
@@ -36,7 +49,10 @@ export function addMessage(userId, body) {
   const msg = { id, userId, body, createdAt };
   messages.push(msg);
   while (messages.length > MAX_MESSAGES) {
-    messages.shift();
+    const dropped = messages.shift();
+    if (dropped) {
+      clearTranslationsForMessage(dropped.id);
+    }
   }
   for (const listener of messageListeners) {
     try {
@@ -70,4 +86,30 @@ export function listRecentMessages(limit) {
  */
 export function getMessageById(id) {
   return messages.find((m) => m.id === id);
+}
+
+/**
+ * @param {number} messageId
+ * @param {string} targetLocale
+ * @returns {string | undefined}
+ */
+export function getCachedTranslation(messageId, targetLocale) {
+  return translationsByMessageId.get(messageId)?.get(targetLocale);
+}
+
+/**
+ * @param {number} messageId
+ * @param {string} targetLocale
+ * @param {string} text
+ */
+export function setCachedTranslation(messageId, targetLocale, text) {
+  if (!getMessageById(messageId)) {
+    return;
+  }
+  let byLocale = translationsByMessageId.get(messageId);
+  if (!byLocale) {
+    byLocale = new Map();
+    translationsByMessageId.set(messageId, byLocale);
+  }
+  byLocale.set(targetLocale, text);
 }

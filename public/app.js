@@ -229,6 +229,15 @@ function trimFeedToLimit() {
   }
 }
 
+/** Apply server-known translations so the client skips Gemini requests for cache hits. */
+function seedTranslationsFromMessages(messages) {
+  for (const message of messages) {
+    if (typeof message.translatedText === "string") {
+      translationByMessageId.set(message.id, { status: "ok", text: message.translatedText });
+    }
+  }
+}
+
 /**
  * @param {number[]} ids
  * @param {number} size
@@ -401,6 +410,7 @@ async function loadFeedInitial() {
         : 50;
     maxId = feedCache.reduce((acc, message) => Math.max(acc, message.id), 0);
     trimFeedToLimit();
+    seedTranslationsFromMessages(feedCache);
     renderMessages(true);
     if (autoTranslateEnabled) {
       void autoTranslateVisibleMessages();
@@ -414,7 +424,7 @@ async function loadFeedInitial() {
 }
 
 /**
- * @param {Array<{id:number,body:string,translatedText:string,authorName:string,authorLocale:string,createdAt:number,isOwn:boolean}>} messages
+ * @param {Array<{id:number,body:string,translatedText:string|null,authorName:string,authorLocale:string,createdAt:number,isOwn:boolean}>} messages
  */
 function mergeIncomingMessages(messages) {
   if (!messages.length) {
@@ -427,6 +437,7 @@ function mergeIncomingMessages(messages) {
   }
   feedCache = [...map.values()].sort((a, b) => a.id - b.id);
   trimFeedToLimit();
+  seedTranslationsFromMessages(messages);
   renderMessages(true, { smooth: true });
   if (autoTranslateEnabled) {
     void autoTranslateVisibleMessages();
@@ -447,6 +458,7 @@ async function resyncFeedSince() {
           : 50;
       maxId = feedCache.reduce((acc, m) => Math.max(acc, m.id), 0);
       trimFeedToLimit();
+      seedTranslationsFromMessages(feedCache);
       renderMessages(true);
       if (autoTranslateEnabled) {
         void autoTranslateVisibleMessages();

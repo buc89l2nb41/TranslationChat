@@ -4,11 +4,25 @@ import { getFeedDisplayLimit, getTranslateBatchMax, getTranslateConcurrency } fr
 import { translateWithGemini } from "../adapter/geminiAdapter.js";
 import {
   addMessage,
+  getCachedTranslation,
   getMessageById,
   listMessagesAfter,
   listRecentMessages,
   onMessageAdded,
+  setCachedTranslation,
 } from "../messageStore.js";
+
+/** In-flight Gemini calls keyed by messageId + locale (dedupe concurrent requests). */
+/** @type {Map<string, Promise<string>>} */
+const translationInflight = new Map();
+
+/**
+ * @param {number} messageId
+ * @param {string} targetLocale
+ */
+function translationKey(messageId, targetLocale) {
+  return `${messageId}\0${targetLocale}`;
+}
 
 const COOKIE_NAME = "trans_uid";
 
@@ -63,7 +77,7 @@ function broadcastSseMessage(raw) {
   const base = {
     id: row.id,
     body: row.body,
-    translatedText: row.body,
+    translatedText: null,
     authorName: row.author_name || "",
     authorLocale: row.author_locale,
     createdAt: row.created_at,
@@ -147,6 +161,7 @@ export async function registerApiRoutes(fastify) {
       since > 0 ? listMessagesAfter(since) : listRecentMessages(feedLimit);
 
     const rows = raw.map((m) => enrichMessage(m));
+    const viewerLocale = viewer.locale || "en";
 
     const out = [];
 
@@ -154,7 +169,7 @@ export async function registerApiRoutes(fastify) {
       out.push({
         id: row.id,
         body: row.body,
-        translatedText: row.body,
+        translatedText: feedTranslatedText(row, viewer.id, viewerLocale),
         authorName: row.author_name || "",
         authorLocale: row.author_locale,
         createdAt: row.created_at,
@@ -193,8 +208,8 @@ export async function registerApiRoutes(fastify) {
   });
 
   /**
-   * Batch translate: one Gemini call per message. Parallelism is capped by TRANSLATE_CONCURRENCY.
-   * Translation results are not stored on the server.
+   * Batch translate: one Gemini call per message (cache miss only).
+   * Parallelism is capped by TRANSLATE_CONCURRENCY. Results stay in memory with the message.
    */
   fastify.post("/api/translate/batch", async (request, reply) => {
     const viewer = ensureUser(request, reply);
@@ -285,6 +300,28 @@ async function mapLimit(items, concurrency, fn) {
 }
 
 /**
+ * Value to attach on feed messages for the viewer's locale (no Gemini call).
+ * @param {object} row
+ * @param {string} viewerUserId
+ * @param {string} viewerLocale
+ * @returns {string | null}
+ */
+function feedTranslatedText(row, viewerUserId, viewerLocale) {
+  if (typeof row.body === "string" && row.body.startsWith("FILE:")) {
+    return row.body.split(":").slice(2).join(":") || "file";
+  }
+  const cached = getCachedTranslation(row.id, viewerLocale);
+  if (cached != null) {
+    return cached;
+  }
+  const isOwnMessage = row.user_id === viewerUserId;
+  if (!isOwnMessage && (row.author_locale || "en") === viewerLocale) {
+    return row.body;
+  }
+  return null;
+}
+
+/**
  * @param {object} row
  * @param {string} targetLocale
  * @param {string} [viewerUserId] When set, messages written by this user are still translated into targetLocale (no same-locale skip), so own bubbles get a translation line like others.
@@ -294,12 +331,32 @@ async function resolveTranslation(row, targetLocale, viewerUserId) {
     const name = row.body.split(":").slice(2).join(":") || "file";
     return name;
   }
+
+  const cached = getCachedTranslation(row.id, targetLocale);
+  if (cached != null) {
+    return cached;
+  }
+
   const authorLocale = row.author_locale || "en";
   const isOwnMessage = Boolean(viewerUserId && row.user_id === viewerUserId);
   if (!isOwnMessage && authorLocale === targetLocale) {
     return row.body;
   }
 
-  const translated = await translateWithGemini(row.body, targetLocale);
-  return translated;
+  const key = translationKey(row.id, targetLocale);
+  const pending = translationInflight.get(key);
+  if (pending) {
+    return pending;
+  }
+
+  const promise = translateWithGemini(row.body, targetLocale)
+    .then((translated) => {
+      setCachedTranslation(row.id, targetLocale, translated);
+      return translated;
+    })
+    .finally(() => {
+      translationInflight.delete(key);
+    });
+  translationInflight.set(key, promise);
+  return promise;
 }
